@@ -11,7 +11,10 @@ pytest-cov = "*"
 awscli = "*"
 pandas = "*"
 csci-utils = {editable = true,git = "https://github.com/csci-e-29/2020fa-csci-utils-pdessai"}
-
+luigi = "*"
+torch = "*"
+torchvision = "*"
+boto3 = "*"
 
 [requires]
 python_version = "3.7"
