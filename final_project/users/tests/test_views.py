@@ -3,9 +3,9 @@ from django.contrib.auth.models import AnonymousUser
 from django.http.response import Http404
 from django.test import RequestFactory
 
-from pset_6.users.models import User
-from pset_6.users.tests.factories import UserFactory
-from pset_6.users.views import (
+from final_project.users.models import User
+from final_project.users.tests.factories import UserFactory
+from final_project.users.views import (
     UserRedirectView,
     UserUpdateView,
     user_detail_view,
