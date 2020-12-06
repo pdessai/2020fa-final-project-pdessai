@@ -40,13 +40,22 @@ def train_batch(args):
     current_loss = 0
     all_losses = []
 
-    rnn = RNN(n_letters, n_hidden, n_categories)
+    model_type = args.train_model_type
+    # for basic RNN model
+    if model_type == 'rnn':
+        rnn = RNN(n_letters, n_hidden, n_categories)
+    # for multi-layer RNN model
+    elif model_type == 'multi_rnn':
+        rnn = RNN_multi_1ayer(n_letters, n_hidden, n_categories)
+    # for LSTM model
+    else:
+        rnn = LSTM(n_letters, n_hidden, n_categories)
 
     start = time.time()
 
     for iter in range(1, n_iters + 1):
         category, line, category_tensor, line_tensor = sample_trainning(n_letters, all_categories,category_lines)
-        output, loss = train(rnn, criterion, learning_rate, category_tensor, line_tensor)
+        output, loss = train(rnn, criterion, learning_rate, category_tensor, line_tensor, model_type)
         current_loss += loss
 
         # Print iter number, loss, name and guess
@@ -77,6 +86,7 @@ def time_since(since):
 
 def predict_country_name(args, all_categories, n_letters):
     rnn = torch.load(args.model)
+    model_type = os.path.basename(args.model).split('.')[0]
     input_lines = args.input_lines # be an arg
     n_predictions = args.n_predictions # 3, be an arg
 
@@ -85,7 +95,7 @@ def predict_country_name(args, all_categories, n_letters):
     for input_line in input_lines.split('_'):
         print('\n> %s' % input_line)
         with torch.no_grad():
-            output = evaluate(line_to_tensor(n_letters, input_line), rnn)
+            output = evaluate(line_to_tensor(n_letters, input_line), rnn, model_type)
 
             # Get top N categories
             topv, topi = output.topk(n_predictions, 1, True)
@@ -103,11 +113,16 @@ def predict_country_name(args, all_categories, n_letters):
     return res_df
 
 
-def evaluate(line_tensor, rnn):
-    hidden = rnn.initHidden()
+def evaluate(line_tensor, rnn, model_type):
+    if model_type == 'rnn_lstm':
+        hx, cx = rnn.initHidden()
+        for i in range(line_tensor.size()[0]):
+            output, hx, cx = rnn(line_tensor[i], hx, cx)
 
-    for i in range(line_tensor.size()[0]):
-        output, hidden = rnn(line_tensor[i], hidden)
+    else:
+        hidden = rnn.initHidden()
+        for i in range(line_tensor.size()[0]):
+            output, hidden = rnn(line_tensor[i], hidden)
 
     return output
 
@@ -126,6 +141,8 @@ def main():
                                   help="size of training hidden state, default is 128")
     train_arg_parser.add_argument("--n-iters", type=int, default=5000,
                                   help="size of training iterations, default is 5000")
+    train_arg_parser.add_argument("--train-model-type", type=str, required=True,
+                                  help="specify which model to train")
     train_arg_parser.add_argument("--save-model-path", type=str, required=True,
                                   help="path to folder where trained model will be saved.")
 
@@ -172,5 +189,5 @@ if __name__ == "__main__":
     # plt.xlabel("iteration")
     # plt.ylabel("losses")
     # plt.title('training losses for basic RNN')
-    # plt.savefig("data/plots/loss_rnn.png")
+    # plt.savefig("data/plots/loss_multi_rnn.png")
     main()

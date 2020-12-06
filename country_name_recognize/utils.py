@@ -90,13 +90,22 @@ def sample_trainning(n_letters, all_categories, category_lines):
     return category, line, category_tensor, line_tensor
 
 
-def train(rnn, criterion, learning_rate, category_tensor, line_tensor):
-    hidden = rnn.initHidden()
+def train(rnn, criterion, learning_rate, category_tensor, line_tensor, model_type):
+    if model_type == 'lstm':
+        hx, cx = rnn.initHidden()
 
-    rnn.zero_grad()
+        rnn.zero_grad()
 
-    for i in range(line_tensor.size()[0]):
-        output, hidden = rnn(line_tensor[i], hidden)
+        for i in range(line_tensor.size()[0]):
+            output, hx, cx = rnn(line_tensor[i], hx, cx)
+
+    else:
+        hidden = rnn.initHidden()
+
+        rnn.zero_grad()
+
+        for i in range(line_tensor.size()[0]):
+            output, hidden = rnn(line_tensor[i], hidden)
 
     loss = criterion(output, category_tensor)
     loss.backward()
