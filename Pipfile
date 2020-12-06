@@ -27,6 +27,7 @@ django-allauth = "*"
 django-crispy-forms = "*"
 django-extensions = "*"
 coreapi = "*"
+matplotlib = "*"
 
 [requires]
 python_version = "3.7"
