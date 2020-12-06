@@ -95,6 +95,24 @@ def sample_trainning(all_categories,category_lines):
     return category, line, category_tensor, line_tensor
 
 
+def train(rnn, criterion, learning_rate, category_tensor, line_tensor):
+    hidden = rnn.initHidden()
+
+    rnn.zero_grad()
+
+    for i in range(line_tensor.size()[0]):
+        output, hidden = rnn(line_tensor[i], hidden)
+
+    loss = criterion(output, category_tensor)
+    loss.backward()
+
+    # Add parameters' gradients to their values, multiplied by learning rate
+    for p in rnn.parameters():
+        p.data.add_(-learning_rate, p.grad.data)
+
+    return output, loss.item()
+
+
 class RNN(nn.Module):
     """
     define a basic RNN network
@@ -119,4 +137,51 @@ class RNN(nn.Module):
         return torch.zeros(1, self.hidden_size)
 
 
+class RNN_multi_1ayer(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(RNN_multi_1ayer, self).__init__()
 
+        self.hidden_size = hidden_size
+
+        self.i2h = nn.Linear(input_size + hidden_size, hidden_size)
+
+        self.i2o = nn.Linear(input_size + hidden_size, hidden_size)
+        self.i2o_2 = nn.Linear(hidden_size, output_size)
+        self.softmax = nn.LogSoftmax(dim=1)
+
+    def forward(self, input, hidden):
+        combined = torch.cat((input, hidden), 1)
+        hidden = self.i2h(combined)
+        output = self.i2o(combined)
+        output_2 = self.i2o_2(output)
+        output_2 = self.softmax(output_2)
+        return output_2, hidden
+
+    def initHidden(self):
+        return torch.zeros(1, self.hidden_size)
+
+
+class LSTM(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(LSTM, self).__init__()
+
+        self.hidden_size = hidden_size
+        self.n_layers = 1
+        self.rnn = nn.LSTMCell(input_size=input_size,
+                               hidden_size=hidden_size)
+
+        self.fc = nn.Linear(hidden_size, output_size)
+        self.softmax = nn.LogSoftmax(dim=1)
+
+    def forward(self, input, hx, cx):
+        # hx, cx = self.initHidden()
+        hx, cx = self.rnn(input, (hx, cx))
+        # out = out.contiguous().view(-1, self.hidden_size)
+        output = self.fc(hx)
+        pred = self.softmax(output)
+        return pred, hx, cx
+
+    def initHidden(self):
+        hx = torch.zeros(1, self.hidden_size)
+        cx = torch.zeros(1, self.hidden_size)
+        return hx, cx

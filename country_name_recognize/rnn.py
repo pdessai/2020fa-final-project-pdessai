@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import re
+import math
 
 import numpy as np
 import torch
@@ -11,7 +12,7 @@ import torch.nn as nn
 from .utils import *
 
 
-def train(args):
+def train_batch(args):
     # Build the category_lines dictionary, a list of names per language
     category_lines = {}
     all_categories = []
@@ -25,35 +26,78 @@ def train(args):
         category_lines[category] = lines
 
     n_categories = len(all_categories)
-    learning_rate = 0.005 ## be an arg
-    criterion = nn.CrossEntropyLoss() ## be an arg
-    n_hidden = 128 ## be an arg
+    learning_rate = args.learning_rate ## be an arg
+    criterion = nn.CrossEntropyLoss()  ## be an arg
+    n_hidden = args.n_hidden #128 ## be an arg
+    n_iters = args.n_iters # 5000 be an arg
+    print_every = 500
+    plot_every = 100
+
+    # Keep track of losses for plotting
+    current_loss = 0
+    all_losses = []
+
     rnn = RNN(n_letters, n_hidden, n_categories)
 
+    start = time.time()
+
+    for iter in range(1, n_iters + 1):
+        category, line, category_tensor, line_tensor = sample_trainning(all_categories,category_lines)
+        output, loss = train(rnn, criterion, learning_rate, category_tensor, line_tensor)
+        current_loss += loss
+
+        # Print iter number, loss, name and guess
+        if iter % print_every == 0:
+            guess, guess_i = category_from_output(output)
+            correct = '✓' if guess == category else '✗ (%s)' % category
+            print('%d %d%% (%s) %.4f %s / %s %s' % (
+            iter, iter / n_iters * 100, time_since(start), loss, line, guess, correct))
+
+        # Add current loss avg to list of losses
+        if iter % plot_every == 0:
+            all_losses.append(current_loss / plot_every)
+            current_loss = 0
+
+    return all_losses, output
+
+
+def time_since(since):
+    now = time.time()
+    s = now - since
+    m = math.floor(s / 60)
+    s -= m * 60
+    return '%dm %ds' % (m, s)
+
+
+def predict_country_name(args, all_categories):
+    rnn = args.model
+    input_line = args.input_line
+    n_predictions = args.n_predictions # 3
+
+    print('\n> %s' % input_line)
+    with torch.no_grad():
+        output = evaluate(line_to_tensor(input_line), rnn)
+
+        # Get top N categories
+        topv, topi = output.topk(n_predictions, 1, True)
+        predictions = []
+
+        for i in range(n_predictions):
+            value = topv[0][i].item()
+            category_index = topi[0][i].item()
+            print('(%.2f) %s' % (value, all_categories[category_index]))
+            predictions.append([value, all_categories[category_index]])
+
+    return predictions
+
+
+def evaluate(line_tensor, rnn):
     hidden = rnn.initHidden()
 
-    rnn.zero_grad()
+    for i in range(line_tensor.size()[0]):
+        output, hidden = rnn(line_tensor[i], hidden)
 
-    for i in range(line_tensor.size()[0]): # line_tensor be an arg
-        output, hidden = rnn(line_tensor[i], hidden) ### line_tensor be an arg
-
-    loss = criterion(output, category_tensor) # category_tensor be an arg
-    loss.backward()
-
-    # Add parameters' gradients to their values, multiplied by learning rate
-    for p in rnn.parameters():
-        p.data.add_(-learning_rate, p.grad.data)
-
-    return output, loss.item()
-
-
-
-def country_name(args):
-    pass
-
-
-
-
+    return output
 
 
 def main():
@@ -108,6 +152,18 @@ def main():
                                  help="export ONNX model to a given file")
 
     args = main_arg_parser.parse_args()
+
+    category_lines = {}
+    all_categories = []
+    all_letters = string.ascii_letters + " .,;'"
+    n_letters = len(all_letters)
+
+    for filename in find_files('data/names/*.txt'): #### the path should change to args !!!!
+        category = os.path.splitext(os.path.basename(filename))[0]
+        all_categories.append(category)
+        lines = read_lines(filename)
+        category_lines[category] = lines
+    n_categories = len(all_categories)
 
     if args.subcommand is None:
         print("ERROR: specify either train or eval")
