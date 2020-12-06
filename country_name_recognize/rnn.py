@@ -8,8 +8,10 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
+import matplotlib.pyplot as plt
+import pandas as pd
 
-from .utils import *
+from utils import *
 
 
 def train_batch(args):
@@ -18,8 +20,9 @@ def train_batch(args):
     all_categories = []
     all_letters = string.ascii_letters + " .,;'"
     n_letters = len(all_letters)
+    file_path = args.train_file_path ## be an arg
 
-    for filename in find_files('data/names/*.txt'): #### the path should change to args !!!!
+    for filename in find_files('data/names/*.txt'):
         category = os.path.splitext(os.path.basename(filename))[0]
         all_categories.append(category)
         lines = read_lines(filename)
@@ -42,13 +45,13 @@ def train_batch(args):
     start = time.time()
 
     for iter in range(1, n_iters + 1):
-        category, line, category_tensor, line_tensor = sample_trainning(all_categories,category_lines)
+        category, line, category_tensor, line_tensor = sample_trainning(n_letters, all_categories,category_lines)
         output, loss = train(rnn, criterion, learning_rate, category_tensor, line_tensor)
         current_loss += loss
 
         # Print iter number, loss, name and guess
         if iter % print_every == 0:
-            guess, guess_i = category_from_output(output)
+            guess, guess_i = category_from_output(all_categories,output)
             correct = '✓' if guess == category else '✗ (%s)' % category
             print('%d %d%% (%s) %.4f %s / %s %s' % (
             iter, iter / n_iters * 100, time_since(start), loss, line, guess, correct))
@@ -57,6 +60,9 @@ def train_batch(args):
         if iter % plot_every == 0:
             all_losses.append(current_loss / plot_every)
             current_loss = 0
+
+    save_model_path = args.save_model_path
+    torch.save(rnn, save_model_path)
 
     return all_losses, output
 
@@ -69,26 +75,32 @@ def time_since(since):
     return '%dm %ds' % (m, s)
 
 
-def predict_country_name(args, all_categories):
-    rnn = args.model
-    input_line = args.input_line
-    n_predictions = args.n_predictions # 3
+def predict_country_name(args, all_categories, n_letters):
+    rnn = torch.load(args.model)
+    input_lines = args.input_lines # be an arg
+    n_predictions = args.n_predictions # 3, be an arg
 
-    print('\n> %s' % input_line)
-    with torch.no_grad():
-        output = evaluate(line_to_tensor(input_line), rnn)
+    res = {}
 
-        # Get top N categories
-        topv, topi = output.topk(n_predictions, 1, True)
-        predictions = []
+    for input_line in input_lines.split('_'):
+        print('\n> %s' % input_line)
+        with torch.no_grad():
+            output = evaluate(line_to_tensor(n_letters, input_line), rnn)
 
-        for i in range(n_predictions):
-            value = topv[0][i].item()
-            category_index = topi[0][i].item()
-            print('(%.2f) %s' % (value, all_categories[category_index]))
-            predictions.append([value, all_categories[category_index]])
+            # Get top N categories
+            topv, topi = output.topk(n_predictions, 1, True)
+            predictions = []
 
-    return predictions
+            for i in range(n_predictions):
+                value = topv[0][i].item()
+                category_index = topi[0][i].item()
+                print('(%.2f) %s' % (value, all_categories[category_index]))
+                predictions.append([value, all_categories[category_index]])
+        res[input_line] = predictions
+
+    res_df = pd.DataFrame(res)
+    res_df.to_csv(args.output_path)
+    return res_df
 
 
 def evaluate(line_tensor, rnn):
@@ -101,55 +113,31 @@ def evaluate(line_tensor, rnn):
 
 
 def main():
-    main_arg_parser = argparse.ArgumentParser(description="parser for fast-neural-style")
+    main_arg_parser = argparse.ArgumentParser(description="parser for character-rnn")
     subparsers = main_arg_parser.add_subparsers(title="subcommands", dest="subcommand")
 
     train_arg_parser = subparsers.add_parser("train", help="parser for training arguments")
-    train_arg_parser.add_argument("--epochs", type=int, default=2,
-                                  help="number of training epochs, default is 2")
-    train_arg_parser.add_argument("--batch-size", type=int, default=4,
-                                  help="batch size for training, default is 4")
-    train_arg_parser.add_argument("--dataset", type=str, required=True,
+    train_arg_parser.add_argument("--train-file-path", type=str, default="data/names/*.txt",
                                   help="path to training dataset, the path should point to a folder "
-                                       "containing another folder with all the training images")
-    train_arg_parser.add_argument("--style-image", type=str, default="images/style-images/mosaic.jpg",
-                                  help="path to style-image")
-    train_arg_parser.add_argument("--save-model-dir", type=str, required=True,
+                                       "containing another folder with all the training names")
+    train_arg_parser.add_argument("--learning-rate", type=float, default=0.005,
+                                  help="learning rate for training, default is 0.005")
+    train_arg_parser.add_argument("--n-hidden", type=int, default=128,
+                                  help="size of training hidden state, default is 128")
+    train_arg_parser.add_argument("--n-iters", type=int, default=5000,
+                                  help="size of training iterations, default is 5000")
+    train_arg_parser.add_argument("--save-model-path", type=str, required=True,
                                   help="path to folder where trained model will be saved.")
-    train_arg_parser.add_argument("--checkpoint-model-dir", type=str, default=None,
-                                  help="path to folder where checkpoints of trained models will be saved")
-    train_arg_parser.add_argument("--image-size", type=int, default=256,
-                                  help="size of training images, default is 256 X 256")
-    train_arg_parser.add_argument("--style-size", type=int, default=None,
-                                  help="size of style-image, default is the original size of style image")
-    train_arg_parser.add_argument("--cuda", type=int, required=True,
-                                  help="set it to 1 for running on GPU, 0 for CPU")
-    train_arg_parser.add_argument("--seed", type=int, default=42,
-                                  help="random seed for training")
-    train_arg_parser.add_argument("--content-weight", type=float, default=1e5,
-                                  help="weight for content-loss, default is 1e5")
-    train_arg_parser.add_argument("--style-weight", type=float, default=1e10,
-                                  help="weight for style-loss, default is 1e10")
-    train_arg_parser.add_argument("--lr", type=float, default=1e-3,
-                                  help="learning rate, default is 1e-3")
-    train_arg_parser.add_argument("--log-interval", type=int, default=500,
-                                  help="number of images after which the training loss is logged, default is 500")
-    train_arg_parser.add_argument("--checkpoint-interval", type=int, default=2000,
-                                  help="number of batches after which a checkpoint of the trained model will be created")
 
-    eval_arg_parser = subparsers.add_parser("eval", help="parser for evaluation/stylizing arguments")
-    eval_arg_parser.add_argument("--content-image", type=str, required=True,
+    eval_arg_parser = subparsers.add_parser("eval", help="parser for evaluation/country name prediction arguments")
+    eval_arg_parser.add_argument("--n-predictions", type=int, default=3,
                                  help="path to content image you want to stylize")
-    eval_arg_parser.add_argument("--content-scale", type=float, default=None,
-                                 help="factor for scaling down the content image")
-    eval_arg_parser.add_argument("--output-image", type=str, required=True,
-                                 help="path for saving the output image")
     eval_arg_parser.add_argument("--model", type=str, required=True,
-                                 help="saved model to be used for stylizing the image. If file ends in .pth - PyTorch path is used, if in .onnx - Caffe2 path")
-    eval_arg_parser.add_argument("--cuda", type=int, required=True,
-                                 help="set it to 1 for running on GPU, 0 for CPU")
-    eval_arg_parser.add_argument("--export_onnx", type=str,
-                                 help="export ONNX model to a given file")
+                                 help="saved model to be used for predicting the names. If file ends in .pth - PyTorch path is used")
+    eval_arg_parser.add_argument("--input-lines", type=str, required=True,
+                                 help="input names for prediction")
+    eval_arg_parser.add_argument("--output-path", type=str, required=True,
+                                 help="output predictions for namecountries")
 
     args = main_arg_parser.parse_args()
 
@@ -158,7 +146,7 @@ def main():
     all_letters = string.ascii_letters + " .,;'"
     n_letters = len(all_letters)
 
-    for filename in find_files('data/names/*.txt'): #### the path should change to args !!!!
+    for filename in find_files('data/names/*.txt'):
         category = os.path.splitext(os.path.basename(filename))[0]
         all_categories.append(category)
         lines = read_lines(filename)
@@ -168,16 +156,21 @@ def main():
     if args.subcommand is None:
         print("ERROR: specify either train or eval")
         sys.exit(1)
-    if args.cuda and not torch.cuda.is_available():
-        print("ERROR: cuda is not available, try running on CPU")
-        sys.exit(1)
 
     if args.subcommand == "train":
-        check_paths(args)
-        train(args)
+        all_losses = train_batch(args)[0]
+        return all_losses
+
     else:
-        stylize(args)
+        predict_country_name(args, all_categories, n_letters)
 
 
 if __name__ == "__main__":
+    # all_losses = main()
+    # print(all_losses[:5])
+    # plt.plot(all_losses)
+    # plt.xlabel("iteration")
+    # plt.ylabel("losses")
+    # plt.title('training losses for basic RNN')
+    # plt.savefig("data/plots/loss_rnn.png")
     main()

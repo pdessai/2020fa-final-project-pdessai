@@ -30,11 +30,6 @@ def unicode_2_Ascii(s):
         and c in all_letters
     )
 
-#### this block code maybe put in rnn.py main()
-# # Build the category_lines dictionary, a list of names per language
-# category_lines = {}
-# all_categories = []
-
 
 def read_lines(filename):
     """
@@ -51,12 +46,12 @@ def letter_to_index(all_letters, letter):
     return all_letters.find(letter)
 
 
-def letter_to_tensor(n_letters, letter):
+def letter_to_tensor(all_letters, n_letters, letter):
     """
     # Just for demonstration, turn a letter into a <1 x n_letters> Tensor
     """
     tensor = torch.zeros(1, n_letters)
-    tensor[0][letter_to_index(letter)] = 1
+    tensor[0][letter_to_index(all_letters,letter)] = 1
     return tensor
 
 
@@ -67,7 +62,7 @@ def line_to_tensor(n_letters, line):
     """
     tensor = torch.zeros(len(line), 1, n_letters)
     for li, letter in enumerate(line):
-        tensor[li][0][letter_to_index(letter)] = 1
+        tensor[li][0][letter_to_index(all_letters,letter)] = 1
     return tensor
 
 
@@ -84,14 +79,14 @@ def sample(l):
     return l[random.randint(0, len(l) - 1)]
 
 
-def sample_trainning(all_categories,category_lines):
+def sample_trainning(n_letters, all_categories, category_lines):
     """
     generate random training data
     """
     category = sample(all_categories)
     line = sample(category_lines[category])
     category_tensor = torch.tensor([all_categories.index(category)], dtype=torch.long)
-    line_tensor = line_to_tensor(line)
+    line_tensor = line_to_tensor(n_letters, line)
     return category, line, category_tensor, line_tensor
 
 
