@@ -11,7 +11,7 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from utils import *
+from .data_utils import *
 
 
 def train_batch(args):
@@ -85,10 +85,13 @@ def time_since(since):
 
 
 def predict_country_name(args, all_categories, n_letters):
-    rnn = torch.load(args.model)
     model_type = os.path.basename(args.model).split('.')[0]
     input_lines = args.input_lines # be an arg
     n_predictions = args.n_predictions # 3, be an arg
+    print(model_type, '\n', input_lines)
+    print(args.model)
+    rnn = torch.load(args.model)
+
 
     res = {}
 

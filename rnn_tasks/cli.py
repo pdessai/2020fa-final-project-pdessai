@@ -1,18 +1,17 @@
+import argparse
 from luigi import build
 
-from .tasks import ByDecade, ByReview
+from .tasks.rnn import Predict_names
 
+
+parser = argparse.ArgumentParser(description='Command description.')
 
 def main(args=None):
+    args = parser.parse_args(args=args)
+
     build([
-        ByDecade(
-            save_path='data/',
-            save_glob='decade.parquet',
-            save_flag=None
-        ),
-        ByReview(
-            save_path='data/',
-            save_glob='decade.parquet',
-            save_flag=None
-        )
-        ], local_scheduler=True)
+        Predict_names(
+            data='names.txt',
+            model='rnn_lstm.pkl',
+            outputs='output.csv'
+        )], local_scheduler=True)
