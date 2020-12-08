@@ -6,15 +6,29 @@ verify_ssl = true
 [dev-packages]
 pytest = "*"
 pytest-cov = "*"
+pytest-django = "*"
+django-debug-toolbar = "*"
+factory-boy = "*"
 
 [packages]
 awscli = "*"
 pandas = "*"
-csci-utils = {editable = true,git = "https://github.com/csci-e-29/2020fa-csci-utils-pdessai"}
+csci-utils = {editable = true,git = "https://github.com/csci-e-29/2020fa-csci-utils-HanyingG"}
 luigi = "*"
 torch = "*"
 torchvision = "*"
 boto3 = "*"
+django = "*"
+django-environ = "*"
+djangorestframework = "*"
+django-model-utils = "*"
+argon2-cffi = "*"
+django-allauth = "*"
+django-crispy-forms = "*"
+django-extensions = "*"
+coreapi = "*"
+matplotlib = "*"
+psycopg2-binary = "*"
 
 [requires]
 python_version = "3.7"
