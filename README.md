@@ -2,12 +2,12 @@
 
 ## Repo Structure:
 
-- [Problem Statement/Project Overview](#Project Overview)
-- [Tools/Technologies Used and Advanced Python Concepts](#Tools/Technologies Used and Advanced Python Conceptsw)
-- [About NLP](#About NLP)
-- [About ChartJS](#About ChartJS)
+- [Problem Statement/Project Overview](#Project-Overview)
+- [Tools/Technologies Used and Advanced Python Concepts](#Tools/Technologies-Used-and-Advanced-Python-Conceptsw)
+- [About NLP](#About-NLP)
+- [About ChartJS](#About-ChartJS)
 - [Workflow](#Workflow)
-- [Django Visualization](#Django Visualization)
+- [Django Visualization](#Django-Visualization)
 
 
 
